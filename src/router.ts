@@ -79,15 +79,11 @@ export class OpenAPIRouter {
   public matchOperation(req: Request): Operation {
     // normalize request for matching
     req = this.normalizeRequest(req);
-
-    // get relative path
-    const relativePath = req.path.replace(new RegExp(`^${this.apiRoot}/?`), '/');
-
     // get all operations matching request method in a flat array
     const operations = _.filter(this.getOperations(), ({ method }) => method === req.method);
 
     // first check for an exact match for path
-    const exactMatch = _.find(operations, ({ path }) => path === relativePath);
+    const exactMatch = _.find(operations, ({ path }) => path === req.path);
     if (exactMatch) {
       return exactMatch;
     }
@@ -96,7 +92,7 @@ export class OpenAPIRouter {
     return _.find(operations, ({ path }) => {
       // convert openapi path template to a regex pattern i.e. /{id}/ becomes /[^/]+/
       const pathPattern = `^${path.replace(/\{.*?\}/g, '[^/]+')}$`;
-      return Boolean(relativePath.match(new RegExp(pathPattern, 'g')));
+      return Boolean(req.path.match(new RegExp(pathPattern, 'g')));
     });
   }
 
@@ -143,6 +139,7 @@ export class OpenAPIRouter {
    * - path leading slash 👍
    * - path trailing slash 👎
    * - path query string 👎
+   * - apiRoot prefix in path 👎
    *
    * @export
    * @param {Request} req
@@ -155,7 +152,8 @@ export class OpenAPIRouter {
         .trim()
         .split('?')[0] // remove query string
         .replace(/\/+$/, '') // remove trailing slash
-        .replace(/^\/*/, '/'), // add leading slash
+        .replace(/^\/*/, '/') // add leading slash
+        .replace(new RegExp(`^${this.apiRoot}/?`), '/'), // strip apiRoot prefix
       method: req.method.trim().toLowerCase(),
     };
   }
